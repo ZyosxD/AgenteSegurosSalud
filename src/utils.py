@@ -2,6 +2,8 @@ import json
 import os
 import logging
 import traceback
+import random
+import string
 from src import config
 
 def setup_logging():
@@ -79,3 +81,29 @@ def request_human_help(error_message, driver=None):
             exit()
         else:
             print("Opción no válida.")
+
+def generate_strong_password():
+    """
+    Genera una contraseña segura que cumple con los requisitos:
+    - 8 a 20 caracteres
+    - Letras mayúsculas y minúsculas
+    - 1 o más números
+    """
+    length = 12
+    chars = string.ascii_letters + string.digits # Alphanumeric only per typical strict rules, can add punctuation if allowed
+
+    # Ensure at least one of each required type
+    password = [
+        random.choice(string.ascii_uppercase),
+        random.choice(string.ascii_lowercase),
+        random.choice(string.digits),
+        random.choice(string.digits)
+    ]
+
+    # Fill the rest
+    password += [random.choice(chars) for _ in range(length - len(password))]
+
+    # Shuffle
+    random.shuffle(password)
+
+    return "".join(password)

@@ -73,7 +73,6 @@ def create_account(driver, new_user_data):
 
                 if state:
                     try:
-                        # Intentamos encontrar un dropdown (Select) clásico
                         try:
                             state_dropdown = wait.until(EC.visibility_of_element_located((By.TAG_NAME, "select")))
                             select = Select(state_dropdown)
@@ -85,7 +84,6 @@ def create_account(driver, new_user_data):
                                 logging.info(f"Estado '{state}' seleccionado por texto.")
                             state_selected_successfully = True
                         except:
-                            # Estrategia alternativa
                             logging.info("No se encontró <select> estándar. Buscando alternativas por texto...")
                             dropdown_trigger = driver.find_element(By.XPATH, "//*[contains(text(), 'Seleccione') or contains(text(), 'Select')]")
                             dropdown_trigger.click()
@@ -94,13 +92,12 @@ def create_account(driver, new_user_data):
                             state_option.click()
                             state_selected_successfully = True
 
-                        # Click en Continuar
                         if state_selected_successfully:
                             try:
                                 continue_btn = driver.find_element(By.XPATH, "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'continu')]")
                                 continue_btn.click()
                                 logging.info("Click en botón Continuar/Continue.")
-                                time.sleep(5) # Esperar transición de página
+                                time.sleep(5)
                             except:
                                 logging.info("No se encontró botón explícito de continuar, esperando transición automática...")
 
@@ -111,8 +108,6 @@ def create_account(driver, new_user_data):
                 # 2. Formulario de Datos Personales
                 logging.info("Esperando carga del formulario de registro...")
 
-                # Bucle de espera más inteligente y robusto para el formulario
-                # Intentamos buscar por varios selectores posibles para el primer campo
                 possible_first_name_locators = [
                     (By.ID, "firstName"),
                     (By.NAME, "firstName"),
@@ -124,7 +119,7 @@ def create_account(driver, new_user_data):
                 form_loaded = False
                 first_name_element = None
 
-                for _ in range(3): # 3 intentos de espera
+                for _ in range(3):
                     for locator in possible_first_name_locators:
                         try:
                             first_name_element = wait.until(EC.visibility_of_element_located(locator))
@@ -141,7 +136,6 @@ def create_account(driver, new_user_data):
                 if not form_loaded:
                      logging.warning("No se detectó la carga automática del formulario. Verifique si se requiere acción manual.")
                      utils.request_human_help("Asegúrese de estar en la página de registro (Nombre, Email, etc).", driver=driver)
-                     # Intentamos recuperar de nuevo por si el usuario lo arregló
                      try:
                          first_name_element = driver.find_element(By.ID, "firstName")
                      except:
@@ -149,7 +143,6 @@ def create_account(driver, new_user_data):
 
                 logging.info("Llenando campos de datos personales...")
 
-                # Helper function para intentar llenar campos con varios selectores
                 def robust_fill(driver, locators, value):
                     for loc in locators:
                         try:
@@ -163,7 +156,7 @@ def create_account(driver, new_user_data):
 
                 # Nombre
                 if not robust_fill(driver, [(By.ID, "firstName"), (By.NAME, "firstName")], new_user_data.get('first_name')):
-                    if first_name_element: # Fallback al elemento encontrado antes
+                    if first_name_element:
                         first_name_element.send_keys(new_user_data.get('first_name'))
 
                 # Apellido
@@ -172,40 +165,35 @@ def create_account(driver, new_user_data):
                 # Email
                 robust_fill(driver, [(By.ID, "email"), (By.NAME, "email")], new_user_data.get('email'))
 
+                # Generar Contraseña Segura
+                logging.info("Generando contraseña segura...")
+                strong_password = utils.generate_strong_password()
+                new_user_data['password'] = strong_password # Actualizar datos en memoria para guardar después
+
                 # Contraseña
-                robust_fill(driver, [(By.ID, "password"), (By.NAME, "password")], new_user_data.get('password'))
+                robust_fill(driver, [(By.ID, "password"), (By.NAME, "password")], strong_password)
 
                 # Confirmación (si existe)
-                robust_fill(driver, [(By.ID, "confirmPassword"), (By.NAME, "confirmPassword")], new_user_data.get('password'))
+                robust_fill(driver, [(By.ID, "confirmPassword"), (By.NAME, "confirmPassword")], strong_password)
 
                 # Preguntas de seguridad
-                # Buscamos los dropdowns por su texto de label genérico o tags select
                 try:
-                    # Asumiendo 3 preguntas
                     selects = driver.find_elements(By.TAG_NAME, "select")
-                    inputs = driver.find_elements(By.XPATH, "//input[@type='text']") # Respuestas suelen ser inputs de texto
 
-                    # Filtramos inputs que no sean los de arriba (nombre/apellido/email son 3, + password son 4... las respuestas deberian estar despues)
-                    # Estrategia simple: Seleccionar indice 1 de cada dropdown y poner una respuesta genérica si no hay match
-                    security_data = new_user_data.get('security_questions', [])
-
-                    # Iterar selects que probablemente son de preguntas
                     question_selects = [s for s in selects if "question" in s.get_attribute("id").lower() or "pregunta" in s.get_attribute("id").lower() or "question" in s.get_attribute("name").lower()]
 
                     if not question_selects and len(selects) >= 3:
-                        question_selects = selects[-3:] # Asumir los últimos 3 son preguntas si no hay ID claro
+                        question_selects = selects[-3:]
+
+                    security_data = new_user_data.get('security_questions', [])
 
                     for i, sel in enumerate(question_selects):
                         try:
                             select_obj = Select(sel)
-                            # Seleccionar por indice (el 1, para evitar el "Seleccione..." que es el 0)
-                            select_obj.select_by_index(1)
+                            select_obj.select_by_index(1) # Seleccionar la primera pregunta real
 
-                            # Encontrar el input de respuesta asociado. A menudo es el siguiente input en el DOM.
-                            # xpath relativo: following::input[@type='text'][1]
                             answer_input = sel.find_element(By.XPATH, "following::input[@type='text'][1]")
 
-                            # Intentar poner la respuesta del JSON si existe, sino una default
                             ans = "Respuesta"
                             if i < len(security_data):
                                 ans = security_data[i].get('answer', "Respuesta")
@@ -222,7 +210,6 @@ def create_account(driver, new_user_data):
                 try:
                     terms_checkbox = driver.find_element(By.XPATH, "//input[@type='checkbox']")
                     if not terms_checkbox.is_selected():
-                        # A veces hay que clickear el label, no el input
                         try:
                             terms_checkbox.click()
                         except:
@@ -241,7 +228,6 @@ def create_account(driver, new_user_data):
 
             except Exception as e:
                 logging.warning(f"Error automatizando el formulario: {e}")
-                # Permitimos caer al bloque de verificación manual
 
             # --------------------------------------
 
