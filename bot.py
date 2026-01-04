@@ -111,11 +111,53 @@ class HealthCareBot:
                 # otp_field.send_keys(otp_code)
                 # verify_btn.click()
                 print("Código enviado. Cuenta creada exitosamente (simulado).")
+
+                # Guardar el usuario registrado
+                self.save_registered_user()
             else:
                 print("No se ingresó código. Proceso detenido.")
 
         except Exception as e:
             print(f"Error durante la creación de cuenta: {e}")
+
+    def save_registered_user(self):
+        """
+        Guarda los datos del usuario registrado en una base de datos local (archivo JSON).
+        """
+        db_file = "data/user_database.json"
+
+        # Cargar base de datos existente o iniciar lista vacía
+        if os.path.exists(db_file):
+            try:
+                with open(db_file, 'r', encoding='utf-8') as f:
+                    users_db = json.load(f)
+            except json.JSONDecodeError:
+                users_db = []
+        else:
+            users_db = []
+
+        # Añadir timestamp de registro
+        user_record = self.new_user_data.copy()
+        user_record['registration_date'] = time.strftime("%Y-%m-%d %H:%M:%S")
+
+        # Verificar si ya existe (basado en email) para evitar duplicados
+        # Si existe, actualizamos; si no, añadimos.
+        existing_user_index = next((index for (index, d) in enumerate(users_db) if d["email"] == user_record["email"]), None)
+
+        if existing_user_index is not None:
+            users_db[existing_user_index] = user_record
+            print(f"Actualizando registro existente para {user_record['email']}.")
+        else:
+            users_db.append(user_record)
+            print(f"Añadiendo nuevo registro para {user_record['email']}.")
+
+        # Guardar en archivo
+        try:
+            with open(db_file, 'w', encoding='utf-8') as f:
+                json.dump(users_db, f, indent=4)
+            print(f"Datos de usuario guardados exitosamente en {db_file}.")
+        except Exception as e:
+            print(f"Error al guardar datos de usuario: {e}")
 
     def login(self):
         """

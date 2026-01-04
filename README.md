@@ -99,6 +99,12 @@ Para llenar el perfil y buscar planes.
 
 > **⚠️ Nota de Seguridad:** Nunca compartas estos archivos, ya que contienen información personal sensible.
 
+#### C. Base de Datos de Usuarios (`data/user_database.json`)
+Este archivo se genera automáticamente.
+*   **Propósito**: Almacenar un registro de todos los usuarios que han creado una cuenta exitosamente con el bot.
+*   **Contenido**: Incluye nombre, correo, contraseña, preguntas de seguridad y fecha de registro.
+*   **Uso**: Sirve como respaldo para recuperar datos de acceso si se olvidan.
+
 ---
 
 ## ▶️ Cómo Usar el Bot
