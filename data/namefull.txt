@@ -1,0 +1,16 @@
+{
+    "username": "usuario_ejemplo",
+    "password": "PasswordSeguro123!",
+    "first_name": "Juan",
+    "last_name": "Perez",
+    "dob": "01/01/1980",
+    "address": "123 Calle Principal",
+    "city": "Miami",
+    "state": "FL",
+    "zip_code": "33101",
+    "income": "30000",
+    "plan_preferences": {
+        "max_premium": 100,
+        "metal_level": "Silver"
+    }
+}
