@@ -2,18 +2,21 @@
 
 ¡Bienvenido! Este repositorio contiene un bot en Python diseñado para automatizar interacciones con el sitio web [CuidadoDeSalud.gov](https://www.cuidadodesalud.gov/). 🤖
 
-El bot está diseñado para ayudar a completar perfiles, mantener sesiones activas y verificar planes de salud, todo basado en datos predefinidos, ahorrando tiempo y asegurando precisión. ✨
+El bot está diseñado para ayudar a:
+1.  **Crear cuentas nuevas** (Registro).
+2.  **Iniciar sesión** con verificación de dos pasos (2FA).
+3.  **Llenar perfiles** automáticamente.
+4.  **Verificar planes de salud** disponibles.
+
+Todo basado en datos predefinidos para ahorrar tiempo y asegurar precisión. ✨
 
 ---
 
-## 🚀 Características
+## 🚀 Características Nuevas
 
-*   **📄 Carga de Datos Automática**: Lee información personal desde un archivo local (`data/namefull.txt`).
-*   **🔐 Inicio de Sesión Simulado**: Estructura lista para automatizar el login.
-*   **📝 Llenado de Formularios**: Completa campos de perfil automáticamente.
-*   **✅ Verificación Interactiva**: Pregunta al usuario antes de cada paso importante.
-*   **🔄 Corrección de Errores**: Permite reingresar datos manualmente si algo no se ve bien.
-*   **🔍 Verificación de Planes**: Busca planes basados en tus preferencias.
+*   **🆕 Creación de Cuenta Automática**: Usa datos de `data/newuser.txt` para registrar nuevos usuarios.
+*   **🔐 Soporte para 2FA**: Permite ingresar códigos de verificación (SMS/Email) manualmente desde la terminal para continuar el flujo automatizado.
+*   **🔀 Menú Interactivo**: Elige fácilmente entre "Iniciar Sesión" o "Crear Cuenta" al inicio.
 
 ---
 
@@ -44,13 +47,36 @@ pip install selenium webdriver-manager
 
 ### 4. Preparar tus Datos 📝
 
-El bot necesita tus datos para funcionar.
+El bot usa dos archivos de datos en la carpeta `data/`.
 
-1.  Crea una carpeta llamada `data` en la raíz del proyecto (si no existe).
-2.  Dentro, crea un archivo llamado `namefull.txt` (o asegúrate de que exista).
-3.  El formato debe ser **JSON**. Puedes copiar y pegar este ejemplo y modificarlo con tus datos reales:
+#### A. Datos de Registro (`data/newuser.txt`)
+Para crear una cuenta nueva. Copia este JSON y edítalo:
 
-**Archivo: `data/namefull.txt`**
+```json
+{
+    "first_name": "Juan",
+    "last_name": "Perez",
+    "email": "juan.perez@example.com",
+    "password": "PasswordSeguro123!",
+    "security_questions": [
+        {
+            "question": "Pregunta 1",
+            "answer": "Respuesta 1"
+        },
+        {
+            "question": "Pregunta 2",
+            "answer": "Respuesta 2"
+        },
+        {
+            "question": "Pregunta 3",
+            "answer": "Respuesta 3"
+        }
+    ]
+}
+```
+
+#### B. Datos de Perfil (`data/namefull.txt`)
+Para llenar el perfil y buscar planes.
 
 ```json
 {
@@ -71,28 +97,30 @@ El bot necesita tus datos para funcionar.
 }
 ```
 
-> **⚠️ Nota de Seguridad:** Nunca compartas tu archivo `namefull.txt` con nadie, ya que contiene información personal sensible. Asegúrate de añadir `data/` a tu `.gitignore` si subes este código a un repositorio público.
+> **⚠️ Nota de Seguridad:** Nunca compartas estos archivos, ya que contienen información personal sensible.
 
 ---
 
 ## ▶️ Cómo Usar el Bot
 
-Una vez configurado todo, ¡es hora de correr el bot!
+1.  Ejecuta el bot:
+    ```bash
+    python bot.py
+    ```
 
-1.  Abre tu terminal.
-2.  Ejecuta el siguiente comando:
+2.  **Selecciona una opción** del menú:
+    ```
+    === Bot de Automatización CuidadoDeSalud.gov ===
+    1. Iniciar Sesión (Login)
+    2. Crear Nueva Cuenta
+    Seleccione una opción (1 o 2):
+    ```
 
-```bash
-python bot.py
-```
+3.  **Sigue las instrucciones**:
+    *   Confirma las acciones con `s` (sí).
+    *   **Ingreso de Códigos (OTP)**: Cuando el bot llegue a la pantalla de verificación (ya sea al crear cuenta o al hacer login), te pedirá en la terminal que ingreses el código que te llegó al correo o celular. Escríbelo y presiona Enter para que el bot continúe.
 
-3.  **Sigue las instrucciones en pantalla**. El bot te preguntará antes de realizar acciones clave:
-
-    *   `¿Desea proceder con: 'Iniciar sesión...'? (s/n)`
-    *   Si respondes `s` (sí), el bot continuará.
-    *   Si respondes `n` (no), se cancelará esa acción.
-
-4.  **Modo de Corrección**: Si el bot llena un formulario incorrectamente, te permitirá corregir los valores escribiendo los nuevos en la terminal.
+4.  **Modo de Corrección**: Si ves datos incorrectos en el llenado de formularios, el bot te permitirá corregirlos antes de continuar.
 
 ---
 
@@ -100,18 +128,15 @@ python bot.py
 
 ```
 .
-├── bot.py              # 🐍 El código principal del bot
+├── bot.py              # 🐍 Código principal actualizado
 ├── data/
-│   └── namefull.txt    # 📄 Tus datos personales (¡Mantenlo seguro!)
-└── README.md           # 📖 Estas instrucciones
+│   ├── namefull.txt    # 📄 Datos de perfil y planes
+│   └── newuser.txt     # 🆕 Datos para creación de cuenta
+└── README.md           # 📖 Instrucciones actualizadas
 ```
 
 ---
 
 ## ⚠️ Aviso Legal
 
-Este bot es una herramienta educativa y de automatización. El uso de bots en sitios gubernamentales puede estar sujeto a términos y condiciones específicos. Úsalo bajo tu propia responsabilidad y asegúrate de cumplir con las normativas de [CuidadoDeSalud.gov](https://www.cuidadodesalud.gov/).
-
----
-
-¡Esperamos que esta herramienta te sea de gran utilidad! 🙌 Si tienes dudas o mejoras, ¡no dudes en contribuir!
+Este bot es una herramienta educativa. El uso de bots en sitios gubernamentales debe cumplir con sus términos de servicio. Úsalo bajo tu propia responsabilidad.

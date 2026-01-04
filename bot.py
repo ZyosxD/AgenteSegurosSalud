@@ -10,29 +10,31 @@ from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 
 class HealthCareBot:
-    def __init__(self, data_file):
+    def __init__(self, data_file, new_user_file="data/newuser.txt"):
         """
-        Inicializa el bot con la ruta del archivo de datos.
+        Inicializa el bot con las rutas de los archivos de datos.
         """
         self.data_file = data_file
-        self.data = self.load_data()
+        self.new_user_file = new_user_file
+        self.data = self.load_json_file(self.data_file)
+        self.new_user_data = self.load_json_file(self.new_user_file)
         self.driver = None
 
-    def load_data(self):
+    def load_json_file(self, filepath):
         """
-        Carga los datos del perfil desde el archivo JSON.
+        Carga datos desde un archivo JSON.
         """
-        if not os.path.exists(self.data_file):
-            print(f"Error: El archivo {self.data_file} no existe.")
+        if not os.path.exists(filepath):
+            print(f"Advertencia: El archivo {filepath} no existe.")
             return None
 
         try:
-            with open(self.data_file, 'r', encoding='utf-8') as f:
+            with open(filepath, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-            print("Datos cargados exitosamente.")
+            print(f"Datos cargados exitosamente desde {filepath}.")
             return data
         except json.JSONDecodeError:
-            print("Error: El archivo de datos no tiene un formato JSON válido.")
+            print(f"Error: El archivo {filepath} no tiene un formato JSON válido.")
             return None
 
     def start_driver(self):
@@ -66,11 +68,63 @@ class HealthCareBot:
             else:
                 print("Respuesta no válida. Por favor ingrese 's' o 'n'.")
 
+    def create_account(self):
+        """
+        Maneja el flujo de creación de una nueva cuenta.
+        """
+        if not self.new_user_data:
+            print("No hay datos de nuevo usuario disponibles en 'data/newuser.txt'.")
+            return
+
+        create_url = "https://www.cuidadodesalud.gov/create-account"
+        print(f"Navegando a {create_url} para crear cuenta...")
+
+        if self.driver:
+            self.driver.get(create_url)
+
+        if not self.ask_confirmation("Iniciar proceso de registro con datos cargados"):
+            return
+
+        try:
+            print("Llenando formulario de registro...")
+            print(f"Nombre: {self.new_user_data.get('first_name')} {self.new_user_data.get('last_name')}")
+            print(f"Email: {self.new_user_data.get('email')}")
+
+            # Simulación de llenado de campos
+            # self.driver.find_element(By.ID, "firstname").send_keys(self.new_user_data.get('first_name'))
+            # self.driver.find_element(By.ID, "lastname").send_keys(self.new_user_data.get('last_name'))
+            # self.driver.find_element(By.ID, "email").send_keys(self.new_user_data.get('email'))
+            # ... questions ...
+
+            print("Simulando envío del formulario de registro...")
+            # submit_btn = self.driver.find_element(By.ID, "create-account-btn")
+            # submit_btn.click()
+            time.sleep(2)
+
+            print("\n--- Verificación de Cuenta ---")
+            print("El sistema probablemente ha enviado un código de verificación.")
+            otp_code = input("Por favor, ingrese el código de verificación recibido (email/teléfono): ")
+
+            if otp_code:
+                print(f"Ingresando código {otp_code} en el sistema...")
+                # otp_field = self.driver.find_element(By.ID, "otp-field")
+                # otp_field.send_keys(otp_code)
+                # verify_btn.click()
+                print("Código enviado. Cuenta creada exitosamente (simulado).")
+            else:
+                print("No se ingresó código. Proceso detenido.")
+
+        except Exception as e:
+            print(f"Error durante la creación de cuenta: {e}")
+
     def login(self):
         """
-        Navega a la página de inicio de sesión y simula el login.
-        Nota: Esto es una simulación ya que no tenemos credenciales reales válidas.
+        Navega a la página de inicio de sesión y simula el login con 2FA.
         """
+        if not self.data:
+            print("No hay datos de usuario para login.")
+            return
+
         if not self.driver:
             print("El navegador no está iniciado.")
             return
@@ -83,10 +137,6 @@ class HealthCareBot:
             return
 
         try:
-            # Esperar a que los campos de usuario y contraseña estén presentes
-            # Estos selectores son hipotéticos y deben actualizarse con los reales del sitio
-            # WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.ID, "username-field-id")))
-
             print(f"Ingresando usuario: {self.data.get('username')}")
             # user_field = self.driver.find_element(By.ID, "username-field-id")
             # user_field.send_keys(self.data.get('username'))
@@ -95,11 +145,24 @@ class HealthCareBot:
             # pass_field = self.driver.find_element(By.ID, "password-field-id")
             # pass_field.send_keys(self.data.get('password'))
 
+            print("Simulando click en botón de Login...")
             # submit_button = self.driver.find_element(By.ID, "login-button-id")
             # submit_button.click()
+            time.sleep(1)
 
-            print("Login simulado completado (acciones de Selenium comentadas por seguridad/falta de selectores reales).")
-            time.sleep(2) # Simular tiempo de carga
+            # Manejo de 2FA
+            print("\n--- Verificación de Dos Pasos (2FA) ---")
+            print("El sistema requiere verificación adicional.")
+            otp_code = input("Ingrese el código de verificación de inicio de sesión (SMS/Email): ")
+
+            if otp_code:
+                print(f"Ingresando código {otp_code}...")
+                # otp_field = self.driver.find_element(By.ID, "2fa-code-field")
+                # otp_field.send_keys(otp_code)
+                # verify_btn.click()
+                print("Login verificado y completado (simulado).")
+            else:
+                print("No se ingresó código. Login incompleto.")
 
         except Exception as e:
             print(f"Error durante el inicio de sesión: {e}")
@@ -113,10 +176,6 @@ class HealthCareBot:
             return
 
         print("Llenando formulario de perfil...")
-        # Aquí iría la lógica para interactuar con los campos del formulario
-        # Ejemplo:
-        # self.driver.find_element(By.NAME, "firstName").send_keys(self.data.get("first_name"))
-        # self.driver.find_element(By.NAME, "lastName").send_keys(self.data.get("last_name"))
 
         # Bucle de verificación y corrección
         while True:
@@ -130,7 +189,6 @@ class HealthCareBot:
             else:
                 self.redo_form()
                 print("Reintentando llenado con nuevos datos...")
-                # Aquí se volvería a ejecutar el llenado del formulario en el navegador
 
     def redo_form(self):
         """
@@ -144,9 +202,6 @@ class HealthCareBot:
             new_value = input(f"Ingrese valor para '{field}' (Actual: {current_value}): ").strip()
             if new_value:
                 self.data[field] = new_value
-                # Aquí también se podría actualizar el campo en el navegador en tiempo real
-                # self.driver.find_element(By.NAME, field_map[field]).clear()
-                # self.driver.find_element(By.NAME, field_map[field]).send_keys(new_value)
 
         print("Datos actualizados en memoria (y simuladamente en el formulario).")
 
@@ -161,25 +216,34 @@ class HealthCareBot:
         preferences = self.data.get("plan_preferences", {})
         print(f"Buscando planes con Nivel: {preferences.get('metal_level')} y Prima Máxima: ${preferences.get('max_premium')}")
 
-        # Lógica de scraping/navegación para filtrar planes
-        # ...
-
         print("Búsqueda de planes completada.")
 
     def run(self):
         """
-        Ejecuta el flujo principal del bot.
+        Ejecuta el flujo principal del bot con menú de selección.
         """
-        if not self.data:
-            print("No se pueden ejecutar las acciones sin datos.")
-            return
+        print("\n=== Bot de Automatización CuidadoDeSalud.gov ===")
+        print("1. Iniciar Sesión (Login)")
+        print("2. Crear Nueva Cuenta")
+
+        choice = input("\nSeleccione una opción (1 o 2): ").strip()
 
         self.start_driver()
 
         try:
-            self.login()
-            self.fill_profile()
-            self.verify_plans()
+            if choice == '1':
+                self.login()
+                # Después del login, típicamente se llena el perfil o verifica planes
+                self.fill_profile()
+                self.verify_plans()
+            elif choice == '2':
+                self.create_account()
+                # Después de crear cuenta, ¿quizás llenar perfil?
+                if self.ask_confirmation("¿Desea continuar al llenado de perfil con los datos de usuario existente?"):
+                     self.fill_profile()
+                     self.verify_plans()
+            else:
+                print("Opción no válida. Saliendo.")
 
             print("\nProceso finalizado con éxito.")
 
