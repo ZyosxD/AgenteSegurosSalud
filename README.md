@@ -107,6 +107,25 @@ Este archivo se genera automáticamente.
 
 ---
 
+## 🛑 Sistema de Registro y Recuperación de Errores
+
+Este bot incluye un **LOG magistral** que registra cada paso de la actividad en el archivo `bot_activity.log` y en la consola. Esto permite una transparencia total sobre lo que el bot está haciendo.
+
+### ¿Qué hacer si ocurre un error?
+
+Si el bot encuentra un problema que no puede resolver automáticamente (por ejemplo, un elemento de la página cambió o falló la conexión), entrará en modo de **Solicitud de Ayuda Humana**:
+
+1.  **Alerta**: Verás un mensaje de error claro en la pantalla y en el log.
+2.  **Acción Manual**: El bot pausará su ejecución. Deberás ir a la ventana del navegador y corregir el problema manualmente (ej. cerrar un popup, rellenar un campo difícil, refrescar la página).
+3.  **Opciones de Recuperación**:
+    *   Escribe `r` y presiona Enter para **Reintentar** el paso que falló.
+    *   Escribe `c` y presiona Enter para **Continuar** e ignorar el error (útil si ya lo corregiste manualmente y el bot solo necesita seguir adelante).
+    *   Escribe `exit` para cerrar el bot.
+
+Esto asegura que ningún error pase desapercibido y que siempre tengas el control para desatascar al bot.
+
+---
+
 ## ▶️ Cómo Usar el Bot
 
 1.  Ejecuta el bot:
