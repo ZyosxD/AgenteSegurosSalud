@@ -73,6 +73,7 @@ def create_account(driver, new_user_data):
 
                 if state:
                     try:
+                        # Intentamos encontrar un dropdown (Select) clásico
                         try:
                             state_dropdown = wait.until(EC.visibility_of_element_located((By.TAG_NAME, "select")))
                             select = Select(state_dropdown)
@@ -84,6 +85,7 @@ def create_account(driver, new_user_data):
                                 logging.info(f"Estado '{state}' seleccionado por texto.")
                             state_selected_successfully = True
                         except:
+                            # Estrategia alternativa
                             logging.info("No se encontró <select> estándar. Buscando alternativas por texto...")
                             dropdown_trigger = driver.find_element(By.XPATH, "//*[contains(text(), 'Seleccione') or contains(text(), 'Select')]")
                             dropdown_trigger.click()
@@ -92,12 +94,13 @@ def create_account(driver, new_user_data):
                             state_option.click()
                             state_selected_successfully = True
 
+                        # Click en Continuar
                         if state_selected_successfully:
                             try:
                                 continue_btn = driver.find_element(By.XPATH, "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'continu')]")
                                 continue_btn.click()
                                 logging.info("Click en botón Continuar/Continue.")
-                                time.sleep(5)
+                                time.sleep(5) # Esperar transición de página
                             except:
                                 logging.info("No se encontró botón explícito de continuar, esperando transición automática...")
 
@@ -108,6 +111,8 @@ def create_account(driver, new_user_data):
                 # 2. Formulario de Datos Personales
                 logging.info("Esperando carga del formulario de registro...")
 
+                # Bucle de espera más inteligente y robusto para el formulario
+                # Intentamos buscar por varios selectores posibles para el primer campo
                 possible_first_name_locators = [
                     (By.ID, "firstName"),
                     (By.NAME, "firstName"),
@@ -119,7 +124,7 @@ def create_account(driver, new_user_data):
                 form_loaded = False
                 first_name_element = None
 
-                for _ in range(3):
+                for _ in range(3): # 3 intentos de espera
                     for locator in possible_first_name_locators:
                         try:
                             first_name_element = wait.until(EC.visibility_of_element_located(locator))
@@ -136,6 +141,7 @@ def create_account(driver, new_user_data):
                 if not form_loaded:
                      logging.warning("No se detectó la carga automática del formulario. Verifique si se requiere acción manual.")
                      utils.request_human_help("Asegúrese de estar en la página de registro (Nombre, Email, etc).", driver=driver)
+                     # Intentamos recuperar de nuevo por si el usuario lo arregló
                      try:
                          first_name_element = driver.find_element(By.ID, "firstName")
                      except:
@@ -143,10 +149,18 @@ def create_account(driver, new_user_data):
 
                 logging.info("Llenando campos de datos personales...")
 
+                # Helper function para intentar llenar campos con varios selectores
                 def robust_fill(driver, locators, value):
                     for loc in locators:
                         try:
                             el = driver.find_element(*loc)
+                            # Scroll to element to ensure it is clickable/visible
+                            driver.execute_script("arguments[0].scrollIntoView(true);", el)
+                            time.sleep(0.5)
+
+                            # Wait for clickability
+                            WebDriverWait(driver, 5).until(EC.element_to_be_clickable(loc))
+
                             el.clear()
                             el.send_keys(value)
                             return True
@@ -156,7 +170,7 @@ def create_account(driver, new_user_data):
 
                 # Nombre
                 if not robust_fill(driver, [(By.ID, "firstName"), (By.NAME, "firstName")], new_user_data.get('first_name')):
-                    if first_name_element:
+                    if first_name_element: # Fallback al elemento encontrado antes
                         first_name_element.send_keys(new_user_data.get('first_name'))
 
                 # Apellido
@@ -178,41 +192,82 @@ def create_account(driver, new_user_data):
 
                 # Preguntas de seguridad
                 try:
-                    selects = driver.find_elements(By.TAG_NAME, "select")
+                    # Estrategia: Buscar los dropdowns activadores
+                    # A veces son botones o divs que abren el select.
+                    # Buscamos botones con role='combobox' o similares, o selects escondidos.
 
-                    question_selects = [s for s in selects if "question" in s.get_attribute("id").lower() or "pregunta" in s.get_attribute("id").lower() or "question" in s.get_attribute("name").lower()]
+                    # Intentaremos una estrategia de encontrar los dropdowns por su posición relativa
+                    # o buscando texto "Seleccione una pregunta"
 
-                    if not question_selects and len(selects) >= 3:
-                        question_selects = selects[-3:]
+                    dropdown_triggers = driver.find_elements(By.XPATH, "//*[contains(text(), 'Seleccione') or contains(text(), 'Select')]")
+                    # Filtramos los que sean visibles y parezcan inputs
+                    dropdown_triggers = [d for d in dropdown_triggers if d.is_displayed()]
+
+                    # Si no encontramos triggers claros, buscamos por estructura de preguntas
+                    if not dropdown_triggers:
+                         dropdown_triggers = driver.find_elements(By.CSS_SELECTOR, "div[role='listbox'], button[aria-haspopup='listbox']")
 
                     security_data = new_user_data.get('security_questions', [])
 
-                    for i, sel in enumerate(question_selects):
+                    # Asumimos que los primeros N triggers son las preguntas
+                    # Limitamos a 3 preguntas
+                    count = 0
+                    for trigger in dropdown_triggers:
+                        if count >= 3: break
                         try:
-                            select_obj = Select(sel)
-                            select_obj.select_by_index(1) # Seleccionar la primera pregunta real
+                            # Hacer click para desplegar
+                            driver.execute_script("arguments[0].scrollIntoView(true);", trigger)
+                            trigger.click()
+                            time.sleep(1)
 
-                            answer_input = sel.find_element(By.XPATH, "following::input[@type='text'][1]")
+                            # Buscar opciones desplegadas
+                            # Opción 1 (index 1) - XPath generico para items de lista
+                            options = driver.find_elements(By.XPATH, "//li[@role='option'] | //div[@role='option']")
+                            if len(options) > 1:
+                                options[1].click() # Click en la segunda opcion (la primera real)
+                                logging.info(f"Pregunta {count+1} seleccionada.")
 
-                            ans = "Respuesta"
-                            if i < len(security_data):
-                                ans = security_data[i].get('answer', "Respuesta")
+                                # Llenar respuesta
+                                # Buscar el input visible más cercano después del trigger
+                                # XPath: (trigger)/following::input[@type='text'][1]
+                                # Note: 'trigger' is an element, we need relative search or re-find.
+                                # Simplificacion: Buscar todos los inputs de texto visibles y llenar los últimos 3
+                                pass
 
-                            answer_input.send_keys(ans)
-                            logging.info(f"Pregunta de seguridad {i+1} llenada.")
-                        except Exception as ex:
-                            logging.warning(f"Error llenando pregunta {i+1}: {ex}")
+                            count += 1
+                        except Exception as e:
+                            logging.warning(f"Intento fallido de interacción con dropdown de pregunta: {e}")
+
+                    # Fallback masivo para respuestas: Llenar los ultimos 3 inputs de texto vacíos
+                    text_inputs = driver.find_elements(By.CSS_SELECTOR, "input[type='text']")
+                    text_inputs = [i for i in text_inputs if i.is_displayed()]
+
+                    # Asumimos que nombre, apellido, email ya estan llenos. Las respuestas deben estar vacías.
+                    empty_inputs = [i for i in text_inputs if i.get_attribute("value") == ""]
+
+                    # Llenar hasta 3 respuestas
+                    ans_idx = 0
+                    for inp in empty_inputs:
+                        if ans_idx < len(security_data):
+                            inp.send_keys(security_data[ans_idx].get('answer', "Respuesta"))
+                            ans_idx += 1
+
+                    if ans_idx > 0:
+                        logging.info(f"Se intentaron llenar {ans_idx} respuestas de seguridad.")
 
                 except Exception as e:
                      logging.warning(f"Error llenando preguntas de seguridad: {e}")
 
                 # Checkbox de Términos
                 try:
-                    terms_checkbox = driver.find_element(By.XPATH, "//input[@type='checkbox']")
-                    if not terms_checkbox.is_selected():
+                    # Buscar por ID o label for
+                    terms_chk = driver.find_element(By.XPATH, "//input[@type='checkbox']")
+                    driver.execute_script("arguments[0].scrollIntoView(true);", terms_chk)
+                    if not terms_chk.is_selected():
                         try:
-                            terms_checkbox.click()
+                            terms_chk.click()
                         except:
+                            # Click en el label padre o hermano
                             driver.find_element(By.XPATH, "//label[contains(., 'Entiendo') or contains(., 'I understand')]").click()
                     logging.info("Términos aceptados.")
                 except:
@@ -221,6 +276,7 @@ def create_account(driver, new_user_data):
                 # Click en Crear Cuenta
                 try:
                     create_btn = driver.find_element(By.XPATH, "//button[contains(text(), 'Crear') or contains(text(), 'Create')]")
+                    driver.execute_script("arguments[0].scrollIntoView(true);", create_btn)
                     create_btn.click()
                     logging.info("Click en botón Crear Cuenta.")
                 except:
@@ -229,13 +285,18 @@ def create_account(driver, new_user_data):
             except Exception as e:
                 logging.warning(f"Error automatizando el formulario: {e}")
 
+
             # --------------------------------------
 
-            logging.info("Por favor, revise que los datos en el navegador sean correctos y haga clic en 'Crear Cuenta' si no se hizo automáticamente.")
+            # Mensaje de ayuda humana mejorado
+            remaining_tasks = "Revise: Contraseña, Preguntas de Seguridad, Términos y Botón Crear."
+            logging.info(f"Automatización parcial completada. {remaining_tasks}")
 
             logging.info("Esperando verificación de cuenta (OTP)...")
             print("\n--- Verificación de Cuenta ---")
-            print("Si el sistema solicita un código, ingréselo aquí. Si no, presione Enter para continuar.")
+            print("1. Complete cualquier campo faltante en el navegador (Captcha, Preguntas, etc).")
+            print("2. Haga clic en 'Crear Cuenta' si no se hizo.")
+            print("3. Si el sistema solicita un código, ingréselo aquí. Si no, presione Enter para continuar.")
             otp_code = input("Código de verificación (o Enter para saltar): ")
 
             if otp_code:
