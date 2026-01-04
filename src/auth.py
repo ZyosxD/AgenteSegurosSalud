@@ -64,12 +64,11 @@ def create_account(driver, new_user_data):
 
             # --- INTERACCIÓN REAL CON FORMULARIO ---
             try:
-                wait = WebDriverWait(driver, 15) # Aumentado tiempo de espera
+                wait = WebDriverWait(driver, 15)
 
                 # 1. Selección de Estado (Primer paso)
                 logging.info("Buscando selector de estado...")
                 state = new_user_data.get('state')
-
                 state_selected_successfully = False
 
                 if state:
@@ -86,13 +85,11 @@ def create_account(driver, new_user_data):
                                 logging.info(f"Estado '{state}' seleccionado por texto.")
                             state_selected_successfully = True
                         except:
-                            # Estrategia alternativa: Puede ser un dropdown estilo custom (div/ul) o un botón
+                            # Estrategia alternativa
                             logging.info("No se encontró <select> estándar. Buscando alternativas por texto...")
-                            # Intentar encontrar un elemento clicable que contenga "Seleccione" o "Select"
                             dropdown_trigger = driver.find_element(By.XPATH, "//*[contains(text(), 'Seleccione') or contains(text(), 'Select')]")
                             dropdown_trigger.click()
                             time.sleep(1)
-                            # Intentar click en la opción del estado
                             state_option = driver.find_element(By.XPATH, f"//*[contains(text(), '{state}')]")
                             state_option.click()
                             state_selected_successfully = True
@@ -109,44 +106,138 @@ def create_account(driver, new_user_data):
 
                     except Exception as e:
                          logging.warning(f"No se pudo seleccionar el estado automáticamente: {e}")
-                         # Fallback crítico: Pedir ayuda pero NO fallar el flujo completo inmediatamente
                          utils.request_human_help("Seleccione el estado manualmente y presione continuar.", driver=driver)
 
                 # 2. Formulario de Datos Personales
                 logging.info("Esperando carga del formulario de registro...")
 
-                # Bucle de espera más inteligente para el formulario
+                # Bucle de espera más inteligente y robusto para el formulario
+                # Intentamos buscar por varios selectores posibles para el primer campo
+                possible_first_name_locators = [
+                    (By.ID, "firstName"),
+                    (By.NAME, "firstName"),
+                    (By.XPATH, "//input[contains(@aria-label, 'nombre')]"),
+                    (By.XPATH, "//label[contains(text(), 'nombre')]/following-sibling::input"),
+                    (By.XPATH, "//label[contains(text(), 'First name')]/following-sibling::input")
+                ]
+
                 form_loaded = False
+                first_name_element = None
+
                 for _ in range(3): # 3 intentos de espera
-                    try:
-                        wait.until(EC.visibility_of_element_located((By.ID, "firstName")))
-                        form_loaded = True
+                    for locator in possible_first_name_locators:
+                        try:
+                            first_name_element = wait.until(EC.visibility_of_element_located(locator))
+                            logging.info(f"Formulario detectado usando selector: {locator}")
+                            form_loaded = True
+                            break
+                        except:
+                            continue
+                    if form_loaded:
                         break
-                    except:
-                        logging.info("Esperando campo 'firstName'...")
-                        time.sleep(2)
+                    logging.info("Aún esperando campo 'Primer Nombre'...")
+                    time.sleep(2)
 
                 if not form_loaded:
                      logging.warning("No se detectó la carga automática del formulario. Verifique si se requiere acción manual.")
                      utils.request_human_help("Asegúrese de estar en la página de registro (Nombre, Email, etc).", driver=driver)
+                     # Intentamos recuperar de nuevo por si el usuario lo arregló
+                     try:
+                         first_name_element = driver.find_element(By.ID, "firstName")
+                     except:
+                         pass
 
                 logging.info("Llenando campos de datos personales...")
-                # Nombre y Apellido
-                driver.find_element(By.ID, "firstName").send_keys(new_user_data.get('first_name'))
-                driver.find_element(By.ID, "lastName").send_keys(new_user_data.get('last_name'))
+
+                # Helper function para intentar llenar campos con varios selectores
+                def robust_fill(driver, locators, value):
+                    for loc in locators:
+                        try:
+                            el = driver.find_element(*loc)
+                            el.clear()
+                            el.send_keys(value)
+                            return True
+                        except:
+                            continue
+                    return False
+
+                # Nombre
+                if not robust_fill(driver, [(By.ID, "firstName"), (By.NAME, "firstName")], new_user_data.get('first_name')):
+                    if first_name_element: # Fallback al elemento encontrado antes
+                        first_name_element.send_keys(new_user_data.get('first_name'))
+
+                # Apellido
+                robust_fill(driver, [(By.ID, "lastName"), (By.NAME, "lastName")], new_user_data.get('last_name'))
 
                 # Email
-                driver.find_element(By.ID, "email").send_keys(new_user_data.get('email'))
+                robust_fill(driver, [(By.ID, "email"), (By.NAME, "email")], new_user_data.get('email'))
 
                 # Contraseña
-                driver.find_element(By.ID, "password").send_keys(new_user_data.get('password'))
-                # Confirmación de contraseña (si existe)
-                try:
-                    driver.find_element(By.ID, "confirmPassword").send_keys(new_user_data.get('password'))
-                except:
-                    pass
+                robust_fill(driver, [(By.ID, "password"), (By.NAME, "password")], new_user_data.get('password'))
 
-                logging.info("Campos principales llenados.")
+                # Confirmación (si existe)
+                robust_fill(driver, [(By.ID, "confirmPassword"), (By.NAME, "confirmPassword")], new_user_data.get('password'))
+
+                # Preguntas de seguridad
+                # Buscamos los dropdowns por su texto de label genérico o tags select
+                try:
+                    # Asumiendo 3 preguntas
+                    selects = driver.find_elements(By.TAG_NAME, "select")
+                    inputs = driver.find_elements(By.XPATH, "//input[@type='text']") # Respuestas suelen ser inputs de texto
+
+                    # Filtramos inputs que no sean los de arriba (nombre/apellido/email son 3, + password son 4... las respuestas deberian estar despues)
+                    # Estrategia simple: Seleccionar indice 1 de cada dropdown y poner una respuesta genérica si no hay match
+                    security_data = new_user_data.get('security_questions', [])
+
+                    # Iterar selects que probablemente son de preguntas
+                    question_selects = [s for s in selects if "question" in s.get_attribute("id").lower() or "pregunta" in s.get_attribute("id").lower() or "question" in s.get_attribute("name").lower()]
+
+                    if not question_selects and len(selects) >= 3:
+                        question_selects = selects[-3:] # Asumir los últimos 3 son preguntas si no hay ID claro
+
+                    for i, sel in enumerate(question_selects):
+                        try:
+                            select_obj = Select(sel)
+                            # Seleccionar por indice (el 1, para evitar el "Seleccione..." que es el 0)
+                            select_obj.select_by_index(1)
+
+                            # Encontrar el input de respuesta asociado. A menudo es el siguiente input en el DOM.
+                            # xpath relativo: following::input[@type='text'][1]
+                            answer_input = sel.find_element(By.XPATH, "following::input[@type='text'][1]")
+
+                            # Intentar poner la respuesta del JSON si existe, sino una default
+                            ans = "Respuesta"
+                            if i < len(security_data):
+                                ans = security_data[i].get('answer', "Respuesta")
+
+                            answer_input.send_keys(ans)
+                            logging.info(f"Pregunta de seguridad {i+1} llenada.")
+                        except Exception as ex:
+                            logging.warning(f"Error llenando pregunta {i+1}: {ex}")
+
+                except Exception as e:
+                     logging.warning(f"Error llenando preguntas de seguridad: {e}")
+
+                # Checkbox de Términos
+                try:
+                    terms_checkbox = driver.find_element(By.XPATH, "//input[@type='checkbox']")
+                    if not terms_checkbox.is_selected():
+                        # A veces hay que clickear el label, no el input
+                        try:
+                            terms_checkbox.click()
+                        except:
+                            driver.find_element(By.XPATH, "//label[contains(., 'Entiendo') or contains(., 'I understand')]").click()
+                    logging.info("Términos aceptados.")
+                except:
+                    logging.warning("No se encontró checkbox de términos.")
+
+                # Click en Crear Cuenta
+                try:
+                    create_btn = driver.find_element(By.XPATH, "//button[contains(text(), 'Crear') or contains(text(), 'Create')]")
+                    create_btn.click()
+                    logging.info("Click en botón Crear Cuenta.")
+                except:
+                    logging.info("No se encontró botón Crear Cuenta explícito.")
 
             except Exception as e:
                 logging.warning(f"Error automatizando el formulario: {e}")
