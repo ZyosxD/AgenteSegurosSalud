@@ -130,7 +130,7 @@ Esto asegura que ningún error pase desapercibido y que siempre tengas el contro
 
 1.  Ejecuta el bot:
     ```bash
-    python bot.py
+    python main.py
     ```
 
 2.  **Selecciona una opción** del menú:
@@ -153,11 +153,18 @@ Esto asegura que ningún error pase desapercibido y que siempre tengas el contro
 
 ```
 .
-├── bot.py              # 🐍 Código principal actualizado
+├── main.py             # 🏁 Punto de entrada
+├── src/                # 📦 Código fuente modular
+│   ├── bot.py          # 🧠 Orquestador del bot
+│   ├── auth.py         # 🔐 Lógica de Login/Registro
+│   ├── profile.py      # 📝 Lógica de Perfil/Planes
+│   ├── driver.py       # 🏎️ Gestión del Navegador
+│   ├── utils.py        # 🛠️ Utilidades y Logging
+│   └── config.py       # ⚙️ Configuración
 ├── data/
-│   ├── namefull.txt    # 📄 Datos de perfil y planes
-│   └── newuser.txt     # 🆕 Datos para creación de cuenta
-└── README.md           # 📖 Instrucciones actualizadas
+│   ├── namefull.txt    # 📄 Datos de perfil
+│   └── newuser.txt     # 🆕 Datos de registro
+└── README.md           # 📖 Instrucciones
 ```
 
 ---
