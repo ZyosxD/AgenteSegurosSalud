@@ -64,51 +64,73 @@ def create_account(driver, new_user_data):
 
             # --- INTERACCIÓN REAL CON FORMULARIO ---
             try:
-                wait = WebDriverWait(driver, 10)
+                wait = WebDriverWait(driver, 15) # Aumentado tiempo de espera
 
                 # 1. Selección de Estado (Primer paso)
                 logging.info("Buscando selector de estado...")
                 state = new_user_data.get('state')
+
+                state_selected_successfully = False
+
                 if state:
                     try:
-                        # Intentamos encontrar el dropdown de estado.
-                        # Buscamos por etiqueta <select> que es lo estándar.
-                        # Si hay múltiples, el primero suele ser el del estado en esta página landing.
-                        state_dropdown = wait.until(EC.visibility_of_element_located((By.TAG_NAME, "select")))
-
-                        # Intentar seleccionar por el valor (ej. "FL")
-                        select = Select(state_dropdown)
+                        # Intentamos encontrar un dropdown (Select) clásico
                         try:
-                            select.select_by_value(state)
-                            logging.info(f"Estado '{state}' seleccionado por valor.")
+                            state_dropdown = wait.until(EC.visibility_of_element_located((By.TAG_NAME, "select")))
+                            select = Select(state_dropdown)
+                            try:
+                                select.select_by_value(state)
+                                logging.info(f"Estado '{state}' seleccionado por valor.")
+                            except:
+                                select.select_by_visible_text(state)
+                                logging.info(f"Estado '{state}' seleccionado por texto.")
+                            state_selected_successfully = True
                         except:
-                            # Si falla por valor, intentar por texto visible si el usuario puso "Florida" en vez de "FL"
-                            select.select_by_visible_text(state)
-                            logging.info(f"Estado '{state}' seleccionado por texto.")
+                            # Estrategia alternativa: Puede ser un dropdown estilo custom (div/ul) o un botón
+                            logging.info("No se encontró <select> estándar. Buscando alternativas por texto...")
+                            # Intentar encontrar un elemento clicable que contenga "Seleccione" o "Select"
+                            dropdown_trigger = driver.find_element(By.XPATH, "//*[contains(text(), 'Seleccione') or contains(text(), 'Select')]")
+                            dropdown_trigger.click()
+                            time.sleep(1)
+                            # Intentar click en la opción del estado
+                            state_option = driver.find_element(By.XPATH, f"//*[contains(text(), '{state}')]")
+                            state_option.click()
+                            state_selected_successfully = True
 
-                        # IMPORTANTE: A menudo hay que confirmar la selección o dar clic en continuar
-                        # Buscamos un botón que diga "Continue" o "Continuar" o tenga una clase de botón primario
-                        try:
-                            continue_btn = driver.find_element(By.XPATH, "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'continu')]")
-                            continue_btn.click()
-                            logging.info("Click en botón Continuar/Continue.")
-                            time.sleep(3) # Esperar transición de página
-                        except:
-                            logging.info("No se encontró botón explícito de continuar inmediatamente, o la página se actualiza sola.")
+                        # Click en Continuar
+                        if state_selected_successfully:
+                            try:
+                                continue_btn = driver.find_element(By.XPATH, "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'continu')]")
+                                continue_btn.click()
+                                logging.info("Click en botón Continuar/Continue.")
+                                time.sleep(5) # Esperar transición de página
+                            except:
+                                logging.info("No se encontró botón explícito de continuar, esperando transición automática...")
 
                     except Exception as e:
                          logging.warning(f"No se pudo seleccionar el estado automáticamente: {e}")
+                         # Fallback crítico: Pedir ayuda pero NO fallar el flujo completo inmediatamente
                          utils.request_human_help("Seleccione el estado manualmente y presione continuar.", driver=driver)
 
                 # 2. Formulario de Datos Personales
-                logging.info("Buscando campos de datos personales (Esperando carga del formulario)...")
+                logging.info("Esperando carga del formulario de registro...")
 
-                # Esperar a que aparezca al menos el campo de nombre para asegurar que cambiamos de página/sección
-                try:
-                    wait.until(EC.visibility_of_element_located((By.ID, "firstName")))
-                except:
-                    logging.info("El campo 'firstName' no apareció inmediatamente. Verifique si se requiere acción manual.")
+                # Bucle de espera más inteligente para el formulario
+                form_loaded = False
+                for _ in range(3): # 3 intentos de espera
+                    try:
+                        wait.until(EC.visibility_of_element_located((By.ID, "firstName")))
+                        form_loaded = True
+                        break
+                    except:
+                        logging.info("Esperando campo 'firstName'...")
+                        time.sleep(2)
 
+                if not form_loaded:
+                     logging.warning("No se detectó la carga automática del formulario. Verifique si se requiere acción manual.")
+                     utils.request_human_help("Asegúrese de estar en la página de registro (Nombre, Email, etc).", driver=driver)
+
+                logging.info("Llenando campos de datos personales...")
                 # Nombre y Apellido
                 driver.find_element(By.ID, "firstName").send_keys(new_user_data.get('first_name'))
                 driver.find_element(By.ID, "lastName").send_keys(new_user_data.get('last_name'))
@@ -124,12 +146,7 @@ def create_account(driver, new_user_data):
                 except:
                     pass
 
-                # Preguntas de seguridad (Lógica básica)
-                security_questions = new_user_data.get('security_questions', [])
-                if security_questions:
-                     pass # La lógica de preguntas de seguridad es compleja (dropdowns dinámicos), se deja para manual por ahora si falla.
-
-                logging.info("Campos principales llenados. Por favor revise y complete Captcha/Preguntas si faltan.")
+                logging.info("Campos principales llenados.")
 
             except Exception as e:
                 logging.warning(f"Error automatizando el formulario: {e}")
