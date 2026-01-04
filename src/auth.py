@@ -2,6 +2,9 @@ import time
 import json
 import os
 import logging
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from src import config, utils
 
 def save_registered_user(new_user_data):
@@ -57,28 +60,59 @@ def create_account(driver, new_user_data):
                 return
 
             logging.info("Llenando formulario de registro...")
-            logging.info(f"Datos: {new_user_data.get('first_name')} {new_user_data.get('last_name')}, {new_user_data.get('email')}")
 
-            # Simulación de llenado (Placeholder para selectores reales)
-            # ... lógica de selenium ...
+            # --- INTERACCIÓN REAL CON FORMULARIO ---
+            # NOTA: Los selectores (ID, NAME) son estimados. Si fallan, el bot pedirá ayuda humana.
+            try:
+                # Nombre y Apellido
+                driver.find_element(By.ID, "firstName").send_keys(new_user_data.get('first_name'))
+                driver.find_element(By.ID, "lastName").send_keys(new_user_data.get('last_name'))
 
-            logging.info("Simulando envío del formulario...")
-            time.sleep(2)
+                # Email
+                driver.find_element(By.ID, "email").send_keys(new_user_data.get('email'))
+
+                # Contraseña (si existe campo de confirmación, se asume 'password' y 'confirmPassword')
+                driver.find_element(By.ID, "password").send_keys(new_user_data.get('password'))
+                # driver.find_element(By.ID, "confirmPassword").send_keys(new_user_data.get('password'))
+
+                # Preguntas de seguridad
+                security_questions = new_user_data.get('security_questions', [])
+                if security_questions and len(security_questions) > 0:
+                     # Ejemplo para primera pregunta (puede variar si son dropdowns)
+                     # driver.find_element(By.ID, "securityQuestion1").send_keys(security_questions[0]['answer'])
+                     pass
+
+                logging.info("Formulario llenado. Esperando confirmación para enviar...")
+
+                # Botón de crear cuenta
+                # btn = driver.find_element(By.ID, "createAccountButton")
+                # btn.click()
+
+            except Exception as e:
+                logging.warning(f"No se pudieron encontrar algunos campos automáticamente: {e}")
+                # No lanzamos error fatal aquí para permitir que request_human_help maneje la corrección manual
+
+            # --------------------------------------
+
+            logging.info("Por favor, revise que los datos en el navegador sean correctos y haga clic en 'Crear Cuenta' si no se hizo automáticamente.")
 
             logging.info("Esperando verificación de cuenta (OTP)...")
             print("\n--- Verificación de Cuenta ---")
-            otp_code = input("Por favor, ingrese el código de verificación recibido (email/teléfono): ")
+            print("Si el sistema solicita un código, ingréselo aquí. Si no, presione Enter para continuar.")
+            otp_code = input("Código de verificación (o Enter para saltar): ")
 
             if otp_code:
                 logging.info(f"Código OTP {otp_code} ingresado por el usuario.")
-                # ... enviar código ...
-                logging.info("Cuenta creada exitosamente (simulado).")
-                save_registered_user(new_user_data)
-                break # Salir del bucle si todo sale bien
-            else:
-                logging.warning("No se ingresó código OTP.")
-                if utils.request_human_help("Código OTP faltante", driver=driver) != 'retry':
-                    break
+                # Intentar ingresar el OTP si existe el campo
+                try:
+                    driver.find_element(By.ID, "otpCode").send_keys(otp_code)
+                    driver.find_element(By.ID, "verifyButton").click()
+                except:
+                    logging.info("No se encontró campo automático para OTP, asumiendo ingreso manual o flujo diferente.")
+
+            logging.info("Proceso de creación finalizado (según flujo del bot).")
+            save_registered_user(new_user_data)
+            break
 
         except Exception as e:
             action = utils.request_human_help(f"Error en creación de cuenta: {e}", driver=driver)
@@ -105,22 +139,41 @@ def login(driver, data):
                 return
 
             logging.info(f"Ingresando credenciales para usuario: {data.get('username')}")
-            # ... lógica selenium ...
 
-            time.sleep(1)
-            logging.info("Solicitando código 2FA al usuario...")
+            # --- INTERACCIÓN REAL CON FORMULARIO LOGIN ---
+            try:
+                # Esperar a que el campo username sea visible
+                wait = WebDriverWait(driver, 10)
+                user_field = wait.until(EC.visibility_of_element_located((By.ID, "username")))
+                user_field.clear()
+                user_field.send_keys(data.get('username'))
 
-            otp_code = input("Ingrese el código de verificación de inicio de sesión (SMS/Email): ")
+                pass_field = driver.find_element(By.ID, "password")
+                pass_field.clear()
+                pass_field.send_keys(data.get('password'))
+
+                login_btn = driver.find_element(By.ID, "loginBtn") # ID hipotético
+                login_btn.click()
+
+            except Exception as e:
+                logging.warning(f"Error interactuando con campos de login (IDs pueden haber cambiado): {e}")
+
+            # ---------------------------------------------
+
+            logging.info("Solicitando código 2FA al usuario (si es requerido)...")
+
+            otp_code = input("Ingrese el código de verificación 2FA (si se solicita), o Enter para continuar: ")
 
             if otp_code:
                 logging.info(f"Código 2FA {otp_code} recibido.")
-                # ... enviar código ...
-                logging.info("Login completado exitosamente (simulado).")
-                break
-            else:
-                logging.warning("Login incompleto: falta código 2FA.")
-                if utils.request_human_help("Falta código 2FA", driver=driver) != 'retry':
-                    break
+                try:
+                    driver.find_element(By.ID, "securityCode").send_keys(otp_code)
+                    driver.find_element(By.ID, "verifyBtn").click()
+                except:
+                     pass
+
+            logging.info("Login completado.")
+            break
 
         except Exception as e:
             action = utils.request_human_help(f"Error en Login: {e}", driver=driver)

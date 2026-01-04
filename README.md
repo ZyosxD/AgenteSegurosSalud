@@ -126,6 +126,22 @@ Esto asegura que ningún error pase desapercibido y que siempre tengas el contro
 
 ---
 
+## ⚠️ Configuración de Selectores (Importante)
+
+Dado que `Cuidadodesalud.gov` actualiza frecuentemente sus formularios y el bot corre en distintos entornos, es posible que los identificadores de los campos (`ID`, `name`) cambien.
+
+El bot viene pre-configurado con selectores estándar (`username`, `password`, `firstName`, etc.), pero si notas que el bot no escribe en los campos:
+
+1.  **Abre Chrome** y ve a la página del formulario.
+2.  Haz **clic derecho** sobre el campo que falló y selecciona **Inspeccionar**.
+3.  Busca el atributo `id="..."` o `name="..."`.
+4.  **Actualiza el código**:
+    *   Para Login/Registro: Edita `src/auth.py`.
+    *   Para Perfil: Edita `src/profile.py`.
+    *   Busca la línea `driver.find_element(By.ID, "EL_ID_ANTIGUO")` y reemplázala con el nuevo ID.
+
+---
+
 ## ▶️ Cómo Usar el Bot
 
 1.  Ejecuta el bot:
