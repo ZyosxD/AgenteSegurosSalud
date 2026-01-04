@@ -71,22 +71,44 @@ def create_account(driver, new_user_data):
                 state = new_user_data.get('state')
                 if state:
                     try:
-                        # Intentamos encontrar un dropdown (Select)
-                        # Nota: El ID "stateDropdown" es una suposición. El usuario debe actualizarlo si falla.
+                        # Intentamos encontrar el dropdown de estado.
+                        # Buscamos por etiqueta <select> que es lo estándar.
+                        # Si hay múltiples, el primero suele ser el del estado en esta página landing.
                         state_dropdown = wait.until(EC.visibility_of_element_located((By.TAG_NAME, "select")))
-                        select = Select(state_dropdown)
-                        select.select_by_value(state) # O select_by_visible_text si es necesario
-                        logging.info(f"Estado '{state}' seleccionado.")
 
-                        # Click en Continuar (si existe un botón específico para esto)
-                        # continue_btn = driver.find_element(By.ID, "continueBtn")
-                        # continue_btn.click()
-                        time.sleep(2) # Esperar a que cargue el siguiente formulario
+                        # Intentar seleccionar por el valor (ej. "FL")
+                        select = Select(state_dropdown)
+                        try:
+                            select.select_by_value(state)
+                            logging.info(f"Estado '{state}' seleccionado por valor.")
+                        except:
+                            # Si falla por valor, intentar por texto visible si el usuario puso "Florida" en vez de "FL"
+                            select.select_by_visible_text(state)
+                            logging.info(f"Estado '{state}' seleccionado por texto.")
+
+                        # IMPORTANTE: A menudo hay que confirmar la selección o dar clic en continuar
+                        # Buscamos un botón que diga "Continue" o "Continuar" o tenga una clase de botón primario
+                        try:
+                            continue_btn = driver.find_element(By.XPATH, "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'continu')]")
+                            continue_btn.click()
+                            logging.info("Click en botón Continuar/Continue.")
+                            time.sleep(3) # Esperar transición de página
+                        except:
+                            logging.info("No se encontró botón explícito de continuar inmediatamente, o la página se actualiza sola.")
+
                     except Exception as e:
                          logging.warning(f"No se pudo seleccionar el estado automáticamente: {e}")
+                         utils.request_human_help("Seleccione el estado manualmente y presione continuar.", driver=driver)
 
                 # 2. Formulario de Datos Personales
-                logging.info("Buscando campos de datos personales...")
+                logging.info("Buscando campos de datos personales (Esperando carga del formulario)...")
+
+                # Esperar a que aparezca al menos el campo de nombre para asegurar que cambiamos de página/sección
+                try:
+                    wait.until(EC.visibility_of_element_located((By.ID, "firstName")))
+                except:
+                    logging.info("El campo 'firstName' no apareció inmediatamente. Verifique si se requiere acción manual.")
+
                 # Nombre y Apellido
                 driver.find_element(By.ID, "firstName").send_keys(new_user_data.get('first_name'))
                 driver.find_element(By.ID, "lastName").send_keys(new_user_data.get('last_name'))
@@ -94,26 +116,24 @@ def create_account(driver, new_user_data):
                 # Email
                 driver.find_element(By.ID, "email").send_keys(new_user_data.get('email'))
 
-                # Contraseña (si existe campo de confirmación, se asume 'password' y 'confirmPassword')
+                # Contraseña
                 driver.find_element(By.ID, "password").send_keys(new_user_data.get('password'))
-                # driver.find_element(By.ID, "confirmPassword").send_keys(new_user_data.get('password'))
+                # Confirmación de contraseña (si existe)
+                try:
+                    driver.find_element(By.ID, "confirmPassword").send_keys(new_user_data.get('password'))
+                except:
+                    pass
 
-                # Preguntas de seguridad
+                # Preguntas de seguridad (Lógica básica)
                 security_questions = new_user_data.get('security_questions', [])
-                if security_questions and len(security_questions) > 0:
-                     # Ejemplo para primera pregunta (puede variar si son dropdowns)
-                     # driver.find_element(By.ID, "securityQuestion1").send_keys(security_questions[0]['answer'])
-                     pass
+                if security_questions:
+                     pass # La lógica de preguntas de seguridad es compleja (dropdowns dinámicos), se deja para manual por ahora si falla.
 
-                logging.info("Formulario llenado. Esperando confirmación para enviar...")
-
-                # Botón de crear cuenta
-                # btn = driver.find_element(By.ID, "createAccountButton")
-                # btn.click()
+                logging.info("Campos principales llenados. Por favor revise y complete Captcha/Preguntas si faltan.")
 
             except Exception as e:
-                logging.warning(f"No se pudieron encontrar algunos campos automáticamente: {e}")
-                # No lanzamos error fatal aquí para permitir que request_human_help maneje la corrección manual
+                logging.warning(f"Error automatizando el formulario: {e}")
+                # Permitimos caer al bloque de verificación manual
 
             # --------------------------------------
 
@@ -126,12 +146,11 @@ def create_account(driver, new_user_data):
 
             if otp_code:
                 logging.info(f"Código OTP {otp_code} ingresado por el usuario.")
-                # Intentar ingresar el OTP si existe el campo
                 try:
                     driver.find_element(By.ID, "otpCode").send_keys(otp_code)
                     driver.find_element(By.ID, "verifyButton").click()
                 except:
-                    logging.info("No se encontró campo automático para OTP, asumiendo ingreso manual o flujo diferente.")
+                    logging.info("No se encontró campo automático para OTP.")
 
             logging.info("Proceso de creación finalizado (según flujo del bot).")
             save_registered_user(new_user_data)
@@ -175,11 +194,15 @@ def login(driver, data):
                 pass_field.clear()
                 pass_field.send_keys(data.get('password'))
 
-                login_btn = driver.find_element(By.ID, "loginBtn") # ID hipotético
-                login_btn.click()
+                # Intentar encontrar botón de login
+                try:
+                    login_btn = driver.find_element(By.XPATH, "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'iniciar')]")
+                    login_btn.click()
+                except:
+                     logging.info("No se pudo hacer click automático en Login. Hágalo manualmente.")
 
             except Exception as e:
-                logging.warning(f"Error interactuando con campos de login (IDs pueden haber cambiado): {e}")
+                logging.warning(f"Error interactuando con campos de login: {e}")
 
             # ---------------------------------------------
 
