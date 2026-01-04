@@ -5,6 +5,7 @@ import logging
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import Select
 from src import config, utils
 
 def save_registered_user(new_user_data):
@@ -62,8 +63,30 @@ def create_account(driver, new_user_data):
             logging.info("Llenando formulario de registro...")
 
             # --- INTERACCIÓN REAL CON FORMULARIO ---
-            # NOTA: Los selectores (ID, NAME) son estimados. Si fallan, el bot pedirá ayuda humana.
             try:
+                wait = WebDriverWait(driver, 10)
+
+                # 1. Selección de Estado (Primer paso)
+                logging.info("Buscando selector de estado...")
+                state = new_user_data.get('state')
+                if state:
+                    try:
+                        # Intentamos encontrar un dropdown (Select)
+                        # Nota: El ID "stateDropdown" es una suposición. El usuario debe actualizarlo si falla.
+                        state_dropdown = wait.until(EC.visibility_of_element_located((By.TAG_NAME, "select")))
+                        select = Select(state_dropdown)
+                        select.select_by_value(state) # O select_by_visible_text si es necesario
+                        logging.info(f"Estado '{state}' seleccionado.")
+
+                        # Click en Continuar (si existe un botón específico para esto)
+                        # continue_btn = driver.find_element(By.ID, "continueBtn")
+                        # continue_btn.click()
+                        time.sleep(2) # Esperar a que cargue el siguiente formulario
+                    except Exception as e:
+                         logging.warning(f"No se pudo seleccionar el estado automáticamente: {e}")
+
+                # 2. Formulario de Datos Personales
+                logging.info("Buscando campos de datos personales...")
                 # Nombre y Apellido
                 driver.find_element(By.ID, "firstName").send_keys(new_user_data.get('first_name'))
                 driver.find_element(By.ID, "lastName").send_keys(new_user_data.get('last_name'))
