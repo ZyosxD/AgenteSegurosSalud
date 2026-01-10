@@ -149,8 +149,8 @@ def create_account(driver, new_user_data):
 
                 logging.info("Llenando campos de datos personales...")
 
-                # Helper function para intentar llenar campos con varios selectores
-                def robust_fill(driver, locators, value):
+                # Helper function para intentar llenar campos con varios selectores y estrategias
+                def robust_fill(driver, locators, value, is_password=False):
                     for loc in locators:
                         try:
                             el = driver.find_element(*loc)
@@ -163,6 +163,13 @@ def create_account(driver, new_user_data):
 
                             el.clear()
                             el.send_keys(value)
+
+                            # Verificación opcional para campos normales
+                            if not is_password and el.get_attribute('value') != value:
+                                logging.warning(f"send_keys falló, intentando JS injection para {loc}")
+                                driver.execute_script("arguments[0].value = arguments[1];", el, value)
+                                driver.execute_script("arguments[0].dispatchEvent(new Event('change'));", el)
+
                             return True
                         except:
                             continue
@@ -183,12 +190,33 @@ def create_account(driver, new_user_data):
                 logging.info("Generando contraseña segura...")
                 strong_password = utils.generate_strong_password()
                 new_user_data['password'] = strong_password # Actualizar datos en memoria para guardar después
+                logging.info(f"Contraseña generada: {strong_password[:2]}...{strong_password[-2:]}")
 
-                # Contraseña
-                robust_fill(driver, [(By.ID, "password"), (By.NAME, "password")], strong_password)
+                # Contraseña - Agregamos estrategia JS por si acaso es un campo complejo
+                logging.info("Intentando llenar campo de contraseña...")
+                # Agregamos selectores adicionales específicos para password
+                pwd_locators = [
+                    (By.ID, "password"),
+                    (By.NAME, "password"),
+                    (By.CSS_SELECTOR, "input[type='password']"),
+                    (By.XPATH, "//input[@type='password']")
+                ]
+
+                if robust_fill(driver, pwd_locators, strong_password, is_password=True):
+                    logging.info("Campo contraseña llenado.")
+                else:
+                    logging.warning("No se pudo llenar la contraseña por métodos estándar. Intentando inyección JS directa.")
+                    try:
+                        pwd_el = driver.find_element(By.CSS_SELECTOR, "input[type='password']")
+                        driver.execute_script("arguments[0].value = arguments[1];", pwd_el, strong_password)
+                        driver.execute_script("arguments[0].dispatchEvent(new Event('input'));", pwd_el)
+                        driver.execute_script("arguments[0].dispatchEvent(new Event('change'));", pwd_el)
+                        logging.info("Contraseña inyectada vía JS.")
+                    except Exception as e_pwd:
+                        logging.error(f"Fallo total llenando contraseña: {e_pwd}")
 
                 # Confirmación (si existe)
-                robust_fill(driver, [(By.ID, "confirmPassword"), (By.NAME, "confirmPassword")], strong_password)
+                robust_fill(driver, [(By.ID, "confirmPassword"), (By.NAME, "confirmPassword")], strong_password, is_password=True)
 
                 # Preguntas de seguridad
                 try:
