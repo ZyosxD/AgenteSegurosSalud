@@ -4,6 +4,8 @@ import logging
 import traceback
 import random
 import string
+import time
+from selenium.webdriver.common.by import By
 from src import config
 
 def setup_logging():
@@ -90,9 +92,8 @@ def generate_strong_password():
     - 1 o más números
     """
     length = 12
-    chars = string.ascii_letters + string.digits # Alphanumeric only per typical strict rules, can add punctuation if allowed
+    chars = string.ascii_letters + string.digits
 
-    # Ensure at least one of each required type
     password = [
         random.choice(string.ascii_uppercase),
         random.choice(string.ascii_lowercase),
@@ -100,10 +101,48 @@ def generate_strong_password():
         random.choice(string.digits)
     ]
 
-    # Fill the rest
     password += [random.choice(chars) for _ in range(length - len(password))]
-
-    # Shuffle
     random.shuffle(password)
 
     return "".join(password)
+
+def force_click(driver, element):
+    """
+    Intenta hacer click en un elemento usando Selenium standard, y si falla, usa JavaScript.
+    """
+    try:
+        element.click()
+        return True
+    except Exception as e:
+        logging.warning(f"Click estándar falló, intentando JS click: {e}")
+        try:
+            driver.execute_script("arguments[0].click();", element)
+            return True
+        except Exception as e_js:
+            logging.error(f"JS Click también falló: {e_js}")
+            return False
+
+def select_option_by_text(driver, text):
+    """
+    Busca un elemento visible que contenga el texto dado y le hace click forzado.
+    Útil para dropdowns customizados.
+    """
+    try:
+        # Busca cualquier elemento que contenga el texto
+        xpath = f"//*[contains(text(), '{text}')]"
+        elements = driver.find_elements(By.XPATH, xpath)
+
+        # Filtra solo los visibles
+        visible_elements = [el for el in elements if el.is_displayed()]
+
+        if visible_elements:
+            # Intenta click en el último (a veces el primero es un label oculto) o el primero
+            target = visible_elements[-1]
+            logging.info(f"Encontrado elemento con texto '{text}', intentando click.")
+            return force_click(driver, target)
+        else:
+            logging.warning(f"No se encontraron elementos visibles con texto '{text}'.")
+            return False
+    except Exception as e:
+        logging.error(f"Error buscando opción por texto '{text}': {e}")
+        return False
