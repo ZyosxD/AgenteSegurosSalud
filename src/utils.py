@@ -109,12 +109,16 @@ def generate_strong_password():
 def force_click(driver, element):
     """
     Intenta hacer click en un elemento usando Selenium standard, y si falla, usa JavaScript.
+    Maneja scroll para evitar 'element click intercepted'.
     """
     try:
+        # Intentar scroll al centro antes de clickear
+        driver.execute_script("arguments[0].scrollIntoView({behavior: 'instant', block: 'center'});", element)
+        time.sleep(0.5)
         element.click()
         return True
     except Exception as e:
-        logging.warning(f"Click estándar falló, intentando JS click: {e}")
+        logging.warning(f"Click estándar falló ({str(e).splitlines()[0]}), intentando JS click.")
         try:
             driver.execute_script("arguments[0].click();", element)
             return True
