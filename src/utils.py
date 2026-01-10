@@ -106,6 +106,21 @@ def generate_strong_password():
 
     return "".join(password)
 
+def close_popups(driver):
+    """
+    Intenta cerrar popups conocidos que puedan bloquear clicks.
+    """
+    try:
+        # Selectores comunes de botones de cierre en popups (Qualtrics, etc)
+        close_buttons = driver.find_elements(By.CSS_SELECTOR, ".close, .close-button, [aria-label='Close'], .QSIPopOverCloseButton")
+        for btn in close_buttons:
+            if btn.is_displayed():
+                logging.info("Cerrando popup detectado...")
+                force_click(driver, btn)
+                time.sleep(1)
+    except:
+        pass
+
 def force_click(driver, element):
     """
     Intenta hacer click en un elemento usando Selenium standard, y si falla, usa JavaScript.
@@ -132,6 +147,8 @@ def select_option_by_text(driver, text):
     Útil para dropdowns customizados.
     """
     try:
+        close_popups(driver)
+
         # Busca cualquier elemento que contenga el texto
         xpath = f"//*[contains(text(), '{text}')]"
         elements = driver.find_elements(By.XPATH, xpath)
