@@ -3,7 +3,7 @@
     "last_name": "Perez",
     "email": "juan.perez@example.com",
     "password": "PasswordSeguro123!",
-    "state": "FL",
+    "state": "Florida",
     "security_questions": [
         {
             "question": "What is your mother's maiden name?",
