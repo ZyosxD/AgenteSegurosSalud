@@ -141,28 +141,55 @@ def force_click(driver, element):
             logging.error(f"JS Click también falló: {e_js}")
             return False
 
-def select_option_by_text(driver, text):
+def select_option_by_text(driver, text, scope_element=None):
     """
     Busca un elemento visible que contenga el texto dado y le hace click forzado.
     Útil para dropdowns customizados.
+
+    Args:
+        driver: Selenium WebDriver
+        text: Texto a buscar
+        scope_element: (Opcional) WebElement para restringir la búsqueda (usando .//)
     """
     try:
         close_popups(driver)
 
-        # Busca cualquier elemento que contenga el texto
-        xpath = f"//*[contains(text(), '{text}')]"
-        elements = driver.find_elements(By.XPATH, xpath)
+        # Construir XPath basado en si hay un scope o es global
+        xpath = f".//*[contains(text(), '{text}')]" if scope_element else f"//*[contains(text(), '{text}')]"
 
-        # Filtra solo los visibles
+        # Buscar elementos
+        if scope_element:
+            elements = scope_element.find_elements(By.XPATH, xpath)
+        else:
+            elements = driver.find_elements(By.XPATH, xpath)
+
+        # Filtra solo los visibles y trata de evitar elementos de navegación si no hay scope
         visible_elements = [el for el in elements if el.is_displayed()]
 
+        # Si estamos en modo global, intentar filtrar falsos positivos comunes del header/footer
+        if not scope_element and visible_elements:
+             filtered = []
+             for el in visible_elements:
+                 try:
+                     # Check ancestors for nav/header/footer tags
+                     is_nav = driver.execute_script(
+                         "return arguments[0].closest('header, nav, footer') !== null;", el
+                     )
+                     if not is_nav:
+                         filtered.append(el)
+                 except:
+                     filtered.append(el)
+
+             if filtered:
+                 visible_elements = filtered
+
         if visible_elements:
-            # Intenta click en el último (a veces el primero es un label oculto) o el primero
+            # Intenta click en el último (a menudo el más profundo/relevante en el DOM) o el primero
             target = visible_elements[-1]
             logging.info(f"Encontrado elemento con texto '{text}', intentando click.")
             return force_click(driver, target)
         else:
-            logging.warning(f"No se encontraron elementos visibles con texto '{text}'.")
+            logging.warning(f"No se encontraron elementos visibles (no-nav) con texto '{text}'.")
             return False
     except Exception as e:
         logging.error(f"Error buscando opción por texto '{text}': {e}")

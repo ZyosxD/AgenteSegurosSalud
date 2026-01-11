@@ -62,6 +62,12 @@ def create_account(driver, new_user_data):
 
             logging.info("Llenando formulario de registro...")
 
+            # Intentar localizar el contenedor principal para evitar clicks en el header/footer
+            try:
+                main_content = driver.find_element(By.CSS_SELECTOR, "main, #root, .ds-l-container, #main-content")
+            except:
+                main_content = None # Fallback global
+
             # --- INTERACCIÓN REAL CON FORMULARIO ---
             try:
                 wait = WebDriverWait(driver, 15)
@@ -88,8 +94,8 @@ def create_account(driver, new_user_data):
                             # Estrategia alternativa usando utils.select_option_by_text y force_click
                             logging.info("No se encontró <select> estándar. Buscando alternativas custom...")
 
-                            # Buscar el trigger: Botón o div con texto "Seleccione"
-                            trigger_found = utils.select_option_by_text(driver, "Seleccione")
+                            # Buscar el trigger: Botón o div con texto "Seleccione" dentro del contenido principal
+                            trigger_found = utils.select_option_by_text(driver, "Seleccione", scope_element=main_content)
                             if not trigger_found:
                                 # Intenta buscar triggers por role listbox o combobox
                                 logging.info("Buscando trigger por rol...")
@@ -102,8 +108,8 @@ def create_account(driver, new_user_data):
 
                             if trigger_found:
                                 time.sleep(1)
-                                # Buscar opción del estado y clickearla
-                                state_selected_successfully = utils.select_option_by_text(driver, state)
+                                # Buscar opción del estado y clickearla, restringido al main content si es posible
+                                state_selected_successfully = utils.select_option_by_text(driver, state, scope_element=main_content)
 
                         # Click en Continuar
                         if state_selected_successfully:
@@ -151,6 +157,7 @@ def create_account(driver, new_user_data):
                 if not form_loaded:
                      logging.warning("No se detectó la carga automática del formulario. Verifique si se requiere acción manual.")
                      utils.request_human_help("Asegúrese de estar en la página de registro (Nombre, Email, etc).", driver=driver)
+                     # Intentamos recuperar de nuevo por si el usuario lo arregló
                      try:
                          first_name_element = driver.find_element(By.ID, "firstName")
                      except:
@@ -236,15 +243,16 @@ def create_account(driver, new_user_data):
                     # Estrategia mejorada: Iterar triggers
 
                     # 1. Encontrar todos los posibles "triggers" de dropdowns
-                    # Buscamos botones o divs que parezcan selects
-                    triggers = driver.find_elements(By.CSS_SELECTOR, "button[aria-haspopup='listbox'], div[role='combobox'], select, .dropdown-trigger")
+                    # Buscamos botones o divs que parezcan selects dentro del area principal
+                    search_context = main_content if main_content else driver
+                    triggers = search_context.find_elements(By.CSS_SELECTOR, "button[aria-haspopup='listbox'], div[role='combobox'], select, .dropdown-trigger")
 
                     # Filtramos solo los visibles
                     visible_triggers = [t for t in triggers if t.is_displayed()]
 
                     # Si no encontramos nada claro, buscamos por texto de label cercano "Pregunta"
                     if not visible_triggers:
-                         visible_triggers = driver.find_elements(By.XPATH, "//*[contains(text(), 'Seleccione') or contains(text(), 'Select')]")
+                         visible_triggers = search_context.find_elements(By.XPATH, "//*[contains(text(), 'Seleccione') or contains(text(), 'Select')]")
 
                     # Tomamos hasta 3
                     questions_to_fill = visible_triggers[:3]
