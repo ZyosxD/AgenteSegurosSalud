@@ -240,23 +240,34 @@ def create_account(driver, new_user_data):
                 # Preguntas de seguridad
                 try:
                     logging.info("Intentando llenar preguntas de seguridad...")
-                    # Estrategia mejorada: Iterar triggers
+                    # Estrategia mejorada: Buscar SOLO después del campo de password para no volver al header/state
 
-                    # 1. Encontrar todos los posibles "triggers" de dropdowns
-                    # Buscamos botones o divs que parezcan selects dentro del area principal
-                    search_context = main_content if main_content else driver
-                    triggers = search_context.find_elements(By.CSS_SELECTOR, "button[aria-haspopup='listbox'], div[role='combobox'], select, .dropdown-trigger")
+                    # Usamos XPath relativo al campo de password que acabamos de llenar
+                    # Buscamos cualquier elemento clicable que parezca un dropdown (select, button, div con role)
+                    # QUE ESTÉ DESPUÉS del input password.
+
+                    xpath_triggers = """
+                    //input[@type='password']/following::*[
+                        self::select or
+                        self::button[@aria-haspopup='listbox'] or
+                        self::div[@role='combobox'] or
+                        contains(@class, 'dropdown-trigger') or
+                        contains(text(), 'Seleccione') or
+                        contains(text(), 'Select')
+                    ]
+                    """
+
+                    triggers = driver.find_elements(By.XPATH, xpath_triggers)
 
                     # Filtramos solo los visibles
                     visible_triggers = [t for t in triggers if t.is_displayed()]
 
-                    # Si no encontramos nada claro, buscamos por texto de label cercano "Pregunta"
-                    if not visible_triggers:
-                         visible_triggers = search_context.find_elements(By.XPATH, "//*[contains(text(), 'Seleccione') or contains(text(), 'Select')]")
-
-                    # Tomamos hasta 3
+                    # Tomamos hasta 3 (asumiendo que son las 3 preguntas)
                     questions_to_fill = visible_triggers[:3]
                     security_data = new_user_data.get('security_questions', [])
+
+                    if not questions_to_fill:
+                        logging.warning("No se encontraron dropdowns de preguntas después del campo password.")
 
                     for i, trigger in enumerate(questions_to_fill):
                         try:
@@ -271,27 +282,23 @@ def create_account(driver, new_user_data):
                             visible_options = [o for o in options if o.is_displayed()]
 
                             if len(visible_options) > 1:
-                                target_option = visible_options[1] # Segunda opción
+                                target_option = visible_options[1] # Segunda opción (la primera suele ser "Seleccione...")
                                 utils.force_click(driver, target_option)
                                 logging.info(f"Opción seleccionada para pregunta {i+1}.")
 
                                 # Llenar respuesta
                                 # Buscamos el input de texto más cercano después del trigger
                                 try:
-                                    # XPath para encontrar el siguiente input despues del trigger actual
-                                    # Esto es complejo sin IDs, asumimos orden en DOM
-                                    answer_inputs = driver.find_elements(By.CSS_SELECTOR, "input[type='text']:not([id='firstName']):not([id='lastName']):not([id='email'])")
-                                    # Filtramos visibles y vacíos
-                                    answer_inputs = [inp for inp in answer_inputs if inp.is_displayed()]
+                                    # Encontrar el input inmediatamente siguiente al trigger
+                                    answer_input = trigger.find_element(By.XPATH, "following::input[@type='text'][1]")
 
-                                    # El input de respuesta para la pregunta i suele ser el i-ésimo input disponible de este tipo
-                                    if i < len(answer_inputs):
-                                        ans = "Respuesta"
-                                        if i < len(security_data):
-                                            ans = security_data[i].get('answer', "Respuesta")
+                                    ans = "Respuesta"
+                                    if i < len(security_data):
+                                        ans = security_data[i].get('answer', "Respuesta")
 
-                                        answer_inputs[i].send_keys(ans)
-                                        logging.info(f"Respuesta {i+1} llenada.")
+                                    utils.force_click(driver, answer_input) # Focus
+                                    answer_input.send_keys(ans)
+                                    logging.info(f"Respuesta {i+1} llenada.")
                                 except Exception as e_ans:
                                     logging.warning(f"No se pudo llenar respuesta {i+1}: {e_ans}")
 
@@ -303,7 +310,7 @@ def create_account(driver, new_user_data):
 
                 # Checkbox de Términos
                 try:
-                    # Buscar por ID o label for
+                    # Buscar por ID o label for, restringiendo búsqueda
                     terms_chk = driver.find_element(By.XPATH, "//input[@type='checkbox']")
                     driver.execute_script("arguments[0].scrollIntoView(true);", terms_chk)
                     if not terms_chk.is_selected():
