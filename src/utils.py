@@ -27,7 +27,14 @@ def load_json_file(filepath):
     Carga datos desde un archivo JSON.
     """
     if not os.path.exists(filepath):
-        logging.warning(f"El archivo {filepath} no existe.")
+        base, ext = os.path.splitext(filepath)
+        example_path = f"{base}.example{ext}"
+        if os.path.exists(example_path):
+            msg = f"Falta el archivo: {filepath}. Copia '{example_path}' a '{filepath}' y actualiza tus datos."
+            logging.error(msg)
+            print(f"\n⚠️  {msg}")
+        else:
+            logging.warning(f"El archivo {filepath} no existe.")
         return None
 
     try:

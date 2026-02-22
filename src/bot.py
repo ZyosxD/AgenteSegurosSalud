@@ -12,6 +12,11 @@ class HealthCareBot:
 
         self.data = utils.load_json_file(self.data_file)
         self.new_user_data = utils.load_json_file(self.new_user_file)
+
+        if self.data is None or self.new_user_data is None:
+            logging.error("No se pudieron cargar los datos necesarios. Saliendo.")
+            exit(1)
+
         self.driver = None
 
     def run(self):

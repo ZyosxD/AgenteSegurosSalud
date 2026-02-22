@@ -14,7 +14,7 @@ Todo basado en datos predefinidos para ahorrar tiempo y asegurar precisión. ✨
 
 ## 🚀 Características Nuevas
 
-*   **🆕 Creación de Cuenta Automática**: Usa datos de `data/newuser.txt` para registrar nuevos usuarios.
+*   **🆕 Creación de Cuenta Automática**: Usa datos de `data/newuser.json` para registrar nuevos usuarios.
 *   **🔐 Soporte para 2FA**: Permite ingresar códigos de verificación (SMS/Email) manualmente desde la terminal para continuar el flujo automatizado.
 *   **🔀 Menú Interactivo**: Elige fácilmente entre "Iniciar Sesión" o "Crear Cuenta" al inicio.
 
@@ -47,55 +47,27 @@ pip install selenium webdriver-manager
 
 ### 4. Preparar tus Datos 📝
 
-El bot usa dos archivos de datos en la carpeta `data/`.
+El bot usa dos archivos de datos en la carpeta `data/`. Debes crear estos archivos a partir de los ejemplos proporcionados.
 
-#### A. Datos de Registro (`data/newuser.txt`)
-Para crear una cuenta nueva. Copia este JSON y edítalo:
+#### A. Datos de Registro (`data/newuser.json`)
+Para crear una cuenta nueva.
 
-```json
-{
-    "first_name": "Juan",
-    "last_name": "Perez",
-    "email": "juan.perez@example.com",
-    "password": "PasswordSeguro123!",
-    "security_questions": [
-        {
-            "question": "Pregunta 1",
-            "answer": "Respuesta 1"
-        },
-        {
-            "question": "Pregunta 2",
-            "answer": "Respuesta 2"
-        },
-        {
-            "question": "Pregunta 3",
-            "answer": "Respuesta 3"
-        }
-    ]
-}
+Copia el archivo de ejemplo:
+```bash
+cp data/newuser.example.json data/newuser.json
 ```
 
-#### B. Datos de Perfil (`data/namefull.txt`)
+Edita `data/newuser.json` con tus datos.
+
+#### B. Datos de Perfil (`data/namefull.json`)
 Para llenar el perfil y buscar planes.
 
-```json
-{
-    "username": "tu_usuario",
-    "password": "tu_contraseña",
-    "first_name": "Juan",
-    "last_name": "Perez",
-    "dob": "01/01/1980",
-    "address": "123 Calle Principal",
-    "city": "Miami",
-    "state": "FL",
-    "zip_code": "33101",
-    "income": "30000",
-    "plan_preferences": {
-        "max_premium": 100,
-        "metal_level": "Silver"
-    }
-}
+Copia el archivo de ejemplo:
+```bash
+cp data/namefull.example.json data/namefull.json
 ```
+
+Edita `data/namefull.json` con tus datos.
 
 > **⚠️ Nota de Seguridad:** Nunca compartas estos archivos, ya que contienen información personal sensible.
 
@@ -178,8 +150,8 @@ El bot viene pre-configurado con selectores estándar (`username`, `password`, `
 │   ├── utils.py        # 🛠️ Utilidades y Logging
 │   └── config.py       # ⚙️ Configuración
 ├── data/
-│   ├── namefull.txt    # 📄 Datos de perfil
-│   └── newuser.txt     # 🆕 Datos de registro
+│   ├── namefull.json   # 📄 Datos de perfil (ignorado por git)
+│   └── newuser.json    # 🆕 Datos de registro (ignorado por git)
 └── README.md           # 📖 Instrucciones
 ```
 

@@ -1,5 +1,5 @@
-DATA_FILE = "data/namefull.txt"
-NEW_USER_FILE = "data/newuser.txt"
+DATA_FILE = "data/namefull.json"
+NEW_USER_FILE = "data/newuser.json"
 DB_FILE = "data/user_database.json"
 LOG_FILE = "bot_activity.log"
 

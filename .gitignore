@@ -2,3 +2,7 @@ __pycache__/
 *.pyc
 *.log
 bot_activity.log
+
+# Sensitive data
+data/*.json
+!data/*.example.json
