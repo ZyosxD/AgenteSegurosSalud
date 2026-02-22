@@ -6,6 +6,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
+from selenium.common.exceptions import TimeoutException, StaleElementReferenceException
 from src import config, utils
 
 def save_registered_user(new_user_data):
@@ -116,8 +117,13 @@ def create_account(driver, new_user_data):
                             try:
                                 continue_btn = driver.find_element(By.XPATH, "//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'continu')]")
                                 utils.force_click(driver, continue_btn)
-                                logging.info("Click en botón Continuar/Continue.")
-                                time.sleep(5) # Esperar transición de página
+                                logging.info("Click en botón Continuar/Continue. Esperando transición de página...")
+                                try:
+                                    # Espera dinámica: continúa en cuanto el botón desaparece del DOM (cambio de página)
+                                    wait.until(EC.staleness_of(continue_btn))
+                                except (TimeoutException, StaleElementReferenceException):
+                                    # Si hay timeout o ya es stale, seguimos; el siguiente bloque validará la nueva página
+                                    pass
                             except:
                                 logging.info("No se encontró botón explícito de continuar, esperando transición automática...")
 
