@@ -155,33 +155,24 @@ def select_option_by_text(driver, text, scope_element=None):
         close_popups(driver)
 
         # Construir XPath basado en si hay un scope o es global
-        xpath = f".//*[contains(text(), '{text}')]" if scope_element else f"//*[contains(text(), '{text}')]"
-
-        # Buscar elementos
         if scope_element:
+            # Búsqueda escopada (más rápida y específica)
+            xpath = f".//*[contains(text(), '{text}')]"
             elements = scope_element.find_elements(By.XPATH, xpath)
+            visible_elements = [el for el in elements if el.is_displayed()]
         else:
-            elements = driver.find_elements(By.XPATH, xpath)
+            # Búsqueda global optimizada: Intentar primero excluyendo header/nav/footer
+            # Esto evita iterar sobre elementos irrelevantes y hacer llamadas lentas a is_displayed()
+            xpath_optimized = f"//*[contains(text(), '{text}') and not(ancestor::header) and not(ancestor::nav) and not(ancestor::footer)]"
+            elements = driver.find_elements(By.XPATH, xpath_optimized)
+            visible_elements = [el for el in elements if el.is_displayed()]
 
-        # Filtra solo los visibles y trata de evitar elementos de navegación si no hay scope
-        visible_elements = [el for el in elements if el.is_displayed()]
-
-        # Si estamos en modo global, intentar filtrar falsos positivos comunes del header/footer
-        if not scope_element and visible_elements:
-             filtered = []
-             for el in visible_elements:
-                 try:
-                     # Check ancestors for nav/header/footer tags
-                     is_nav = driver.execute_script(
-                         "return arguments[0].closest('header, nav, footer') !== null;", el
-                     )
-                     if not is_nav:
-                         filtered.append(el)
-                 except:
-                     filtered.append(el)
-
-             if filtered:
-                 visible_elements = filtered
+            # Si no se encuentra nada en el contenido principal, buscar en todo el DOM (fallback)
+            if not visible_elements:
+                logging.info(f"No se encontró texto '{text}' en contenido principal, buscando en todo el DOM...")
+                xpath_global = f"//*[contains(text(), '{text}')]"
+                elements = driver.find_elements(By.XPATH, xpath_global)
+                visible_elements = [el for el in elements if el.is_displayed()]
 
         if visible_elements:
             # Intenta click en el último (a menudo el más profundo/relevante en el DOM) o el primero
@@ -189,7 +180,7 @@ def select_option_by_text(driver, text, scope_element=None):
             logging.info(f"Encontrado elemento con texto '{text}', intentando click.")
             return force_click(driver, target)
         else:
-            logging.warning(f"No se encontraron elementos visibles (no-nav) con texto '{text}'.")
+            logging.warning(f"No se encontraron elementos visibles con texto '{text}'.")
             return False
     except Exception as e:
         logging.error(f"Error buscando opción por texto '{text}': {e}")
