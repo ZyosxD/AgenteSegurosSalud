@@ -6,6 +6,8 @@ import random
 import string
 import time
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from src import config
 
 def setup_logging():
@@ -116,8 +118,13 @@ def close_popups(driver):
         for btn in close_buttons:
             if btn.is_displayed():
                 logging.info("Cerrando popup detectado...")
-                force_click(driver, btn)
-                time.sleep(1)
+                if force_click(driver, btn):
+                    # En lugar de sleep fijo, esperar a que el botón desaparezca o se vuelva obsoleto
+                    try:
+                        WebDriverWait(driver, 2).until(EC.staleness_of(btn))
+                    except:
+                        # Si no desaparece en 2s, continuar con el siguiente
+                        pass
     except:
         pass
 
