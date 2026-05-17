@@ -2,6 +2,7 @@ import json
 import os
 import logging
 import traceback
+import secrets
 import random
 import string
 import time
@@ -84,25 +85,27 @@ def request_human_help(error_message, driver=None):
         else:
             print("Opción no válida.")
 
-def generate_strong_password():
+def generate_strong_password(length=12):
     """
     Genera una contraseña segura que cumple con los requisitos:
     - 8 a 20 caracteres
     - Letras mayúsculas y minúsculas
     - 1 o más números
     """
-    length = 12
+    # Validar longitud (entre 8 y 20)
+    length = max(8, min(20, length))
+
     chars = string.ascii_letters + string.digits
 
     password = [
-        random.choice(string.ascii_uppercase),
-        random.choice(string.ascii_lowercase),
-        random.choice(string.digits),
-        random.choice(string.digits)
+        secrets.choice(string.ascii_uppercase),
+        secrets.choice(string.ascii_lowercase),
+        secrets.choice(string.digits),
+        secrets.choice(string.digits)
     ]
 
-    password += [random.choice(chars) for _ in range(length - len(password))]
-    random.shuffle(password)
+    password += [secrets.choice(chars) for _ in range(length - len(password))]
+    random.SystemRandom().shuffle(password)
 
     return "".join(password)
 
