@@ -2,7 +2,7 @@ import json
 import os
 import logging
 import traceback
-import random
+import secrets
 import string
 import time
 from selenium.webdriver.common.by import By
@@ -95,14 +95,14 @@ def generate_strong_password():
     chars = string.ascii_letters + string.digits
 
     password = [
-        random.choice(string.ascii_uppercase),
-        random.choice(string.ascii_lowercase),
-        random.choice(string.digits),
-        random.choice(string.digits)
+        secrets.choice(string.ascii_uppercase),
+        secrets.choice(string.ascii_lowercase),
+        secrets.choice(string.digits),
+        secrets.choice(string.digits)
     ]
 
-    password += [random.choice(chars) for _ in range(length - len(password))]
-    random.shuffle(password)
+    password += [secrets.choice(chars) for _ in range(length - len(password))]
+    secrets.SystemRandom().shuffle(password)
 
     return "".join(password)
 
